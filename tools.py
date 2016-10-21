@@ -88,8 +88,28 @@ def processOfflineMerchantID(offline):
     merchantSeries = pd.Series(merchantIdDict, index=merchantIdDict.keys())
     return merchantIdDict, merchantSeries.mean()
 
+def processOfflineDiscountRate(offline):
+    discountDict = {}
+    discountRate = set(offline['Discount_rate'])
+    print len(discountRate)
+    for d in discountRate:
+        print d
+        discountDict[d] = 0
+        discount = offline[offline['Discount_rate'] == d]
+        totalSended = discount.size
+        totalCosted = discount[discount['Date'] != 'null'].size
+        rate = float(totalCosted) / totalSended
+
+        discountDict[d] = [totalSended, totalCosted, rate]
+
+    f = file('discount.txt', 'w+')
+    for d in discountDict:
+        f.write(str(d)+' '+' '.join(map(str, discountDict[d]))+'\n')
+    f.close()
+
+    return discountDict
+
 # offlineTest = processOfflineTest('ccf_offline_stage1_test_revised.csv')
 
 offline = processOfflineTrain('ccf_offline_stage1_train.csv')
-processOfflineUserID(offline)
-processOfflineMerchantID(offline)
+processOfflineDiscountRate(offline)
