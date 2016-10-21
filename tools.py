@@ -42,6 +42,7 @@ def processOfflineTrain(file):
     # print offline.loc[:100, ['Date_received', 'Date', 'week', 'days', 'result']]
     return offline
 
+#处理线下测试集
 def processOfflineTest(file):
     offlineTest = pd.read_csv(file, header=None)
     offlineTest.columns = ['User_id', 'Merchant_id', 'Coupon_id', 'Discount_rate', 'Distance', 'Date_received']
@@ -49,55 +50,56 @@ def processOfflineTest(file):
     offlineTest['week'] = offlineTest['week'].fillna(7) #7代表日期为空
     return offlineTest
 
-#用户ID使用优惠券频率字典，并返回平均值
+#用户ID使用优惠券频率字典
 def processOfflineUserID(offline):
     userIdDict = {}
     userId = set(offline['User_id'])
     for u in userId:
-        print u
+        # print u
+        rate = 0
         userIdDict[u] = 0
         user = offline[offline['User_id'] == u]
-        totalReceived = user[user['Date_received'] != 'null'].size
-        totalCostDate = user[(user['Date_received'] != 'null') & (user['Date'] != 'null')].size
-        if totalReceived > 0 : userIdDict[u] = float(totalCostDate) / totalReceived
-
-    userSeries = pd.Series(userIdDict, index=userIdDict.keys())
+        totalReceived = len(user[user['Date_received'] != 'null'])
+        totalCostDate = len(user[(user['Date_received'] != 'null') & (user['Date'] != 'null')])
+        if totalReceived > 0 : rate = float(totalCostDate) / totalReceived
+        userIdDict[u] = [totalReceived, totalCostDate, rate]
 
     f = file('userId.txt', 'w+')
     for u in userIdDict:
-        f.write(str(u)+' '+str(userIdDict[u])+'\n')
+        f.write(str(u)+' '+' '.join(map(str, userIdDict[u]))+'\n')
     f.close()
-    return userIdDict, userSeries.mean()
+    return userIdDict
 
-##商户ID使用优惠券频率字典，并返回平均值
+#商户ID使用优惠券频率字典
 def processOfflineMerchantID(offline):
     merchantIdDict = {}
     merchantId = set(offline['Merchant_id'])
     for m in merchantId:
-        print m
+        # print m
+        rate = 0
         merchantIdDict[m] = 0
         merchant = offline[offline['Merchant_id'] == m]
-        totalSended = merchant[merchant['Date_received'] != 'null'].size
-        totalCost = merchant[(merchant['Date_received'] != 'null') & (merchant['Date'] != 'null')].size
-        if totalSended > 0: merchantIdDict[m] = float(totalCost) / totalSended
+        totalSended = len(merchant[merchant['Date_received'] != 'null'])
+        totalCost = len(merchant[(merchant['Date_received'] != 'null') & (merchant['Date'] != 'null')])
+        if totalSended > 0: rate = float(totalCost) / totalSended
+        merchantIdDict[m] = [totalSended, totalCost, rate]
 
     f = file('merchantId.txt', 'w+')
     for m in merchantIdDict:
-        f.write(str(m)+' '+str(merchantIdDict[m])+'\n')
+        f.write(str(m)+' '+' '.join(map(str, merchantIdDict[m]))+'\n')
     f.close()
-    merchantSeries = pd.Series(merchantIdDict, index=merchantIdDict.keys())
-    return merchantIdDict, merchantSeries.mean()
 
+    return merchantIdDict
+
+#折扣率频率
 def processOfflineDiscountRate(offline):
     discountDict = {}
     discountRate = set(offline['Discount_rate'])
-    print len(discountRate)
     for d in discountRate:
-        print d
         discountDict[d] = 0
         discount = offline[offline['Discount_rate'] == d]
-        totalSended = discount.size
-        totalCosted = discount[discount['Date'] != 'null'].size
+        totalSended = len(discount)
+        totalCosted = len(discount[discount['Date'] != 'null'])
         rate = float(totalCosted) / totalSended
 
         discountDict[d] = [totalSended, totalCosted, rate]
@@ -109,7 +111,12 @@ def processOfflineDiscountRate(offline):
 
     return discountDict
 
-# offlineTest = processOfflineTest('ccf_offline_stage1_test_revised.csv')
 
+# offlineTest = processOfflineTest('ccf_offline_stage1_test_revised.csv')
 offline = processOfflineTrain('ccf_offline_stage1_train.csv')
-processOfflineDiscountRate(offline)
+print len(offline[offline['Date_received'] != 'null'])
+print len(offline[offline['Coupon_id'] != 'null'])
+print len(offline[(offline['Coupon_id'] != 'null') & (offline['Date_received'] != 'null')])
+# processOfflineUserID(offline)
+# processOfflineDiscountRate(offline)
+# processOfflineMerchantID(offline)
