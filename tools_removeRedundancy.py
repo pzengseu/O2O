@@ -52,6 +52,8 @@ def processOfflineTest(file):
     offlineTest.columns = ['User_id', 'Merchant_id', 'Coupon_id', 'Discount_rate', 'Distance', 'Date_received']
     offlineTest['week'] = offlineTest['Date_received'].map(lambda x: time.strptime(str(x), '%Y%m%d')[6]).astype(int)
     offlineTest['week'] = offlineTest['week'].fillna(7) #7代表日期为空
+
+    offlineTest['Distance'] = offlineTest['Distance'].map(lambda x: 11 if x=='null' else x)
     return offlineTest
 
 #用户ID使用优惠券频率字典
@@ -115,7 +117,7 @@ def processOfflineDiscountRate(offline):
 
     return discountDict
 
-#获取特征并保存到文件
+#获取训练集特征并保存到文件
 def generateFeatures(offline):
     userDict = {}
     merchantDict = {}
@@ -148,6 +150,42 @@ def generateFeatures(offline):
     features[['userRate', 'merchantRate', 'discountRate']] = features[['userRate', 'merchantRate', 'discountRate']].astype(float)
 
     features.to_csv('offlineTrainfeatures.csv')
+    return features
+
+#生成线下特征数据集
+def generateOfflineTestFeatures(offlineTest):
+    userDict = {}
+    merchantDict = {}
+    discountDict = {}
+
+    ufile = file('userId.txt', 'r')
+    for line in ufile:
+        d = line.split()
+        userDict[d[0]] = d[3]
+    ufile.close()
+
+    mfile = file('merchantId.txt', 'r')
+    for line in mfile:
+        d = line.split()
+        merchantDict[d[0]] = d[3]
+    mfile.close()
+
+    dfile = file('discount.txt', 'r')
+    for line in dfile:
+        d = line.split()
+        discountDict[d[0]] = d[3]
+    dfile.close()
+
+    userMean = sum(map(float, userDict.itervalues())) / len(userDict)
+    merchantMean = sum(map(float, merchantDict.itervalues())) / len(merchantDict)
+    discountMean = sum(map(float, discountDict.itervalues())) / len(discountDict)
+
+    offlineTest['userRate'] = offlineTest['User_id'].map(lambda x: userDict[str(x)] if str(x) in userDict else str(userMean))
+    offlineTest['merchantRate'] = offlineTest['Merchant_id'].map(lambda x: merchantDict[str(x)] if str(x) in merchantDict else str(merchantMean))
+    offlineTest['discountRate'] = offlineTest['Discount_rate'].map(lambda x: discountDict[str(x)] if str(x) in discountDict else str(discountMean))
+
+    features = offlineTest.drop(['User_id', 'Merchant_id', 'Coupon_id', 'Discount_rate', 'Date_received'], axis=1)
+    features[['userRate', 'merchantRate', 'discountRate']] = features[['userRate', 'merchantRate', 'discountRate']].astype(float)
     return features
 
 def choose_testdata(x,y,num,random_state):
@@ -262,27 +300,27 @@ def calc_auc(x_train, x_test, y_train, y_test):
     print("Example AUC: {auc}".format(auc=testing_auc))
 
 
+if __name__ == '__main__':
+    ##offline = processOfflineTrain('ccf_offline_stage1_train.csv')
+    ### processOfflineUserID(offline)
+    #by:zcs
+    filename="./offlineTrainfeatures.csv"
+    trainData = pd.read_csv(filename, header=0)
+    x=trainData[["Distance","week","userRate","merchantRate","discountRate"]]
+    x[["Distance","week"]]=x[["Distance","week"]].astype(int)
+    x[["userRate","merchantRate","discountRate"]]=x[["userRate","merchantRate","discountRate"]].astype(float)
+    y=trainData[["result"]].astype(int)
 
-##offline = processOfflineTrain('ccf_offline_stage1_train.csv')
-### processOfflineUserID(offline)
-#by:zcs
-filename="./offlineTrainfeatures.csv"
-trainData = pd.read_csv(filename, header=0)
-x=trainData[["Distance","week","userRate","merchantRate","discountRate"]]
-x[["Distance","week"]]=x[["Distance","week"]].astype(int)
-x[["userRate","merchantRate","discountRate"]]=x[["userRate","merchantRate","discountRate"]].astype(float)
-y=trainData[["result"]].astype(int)
+    #分割训练数据集
+    x_train, x_test, y_train, y_test=choose_testdata(x,y,5,42)
 
-#分割训练数据集
-x_train, x_test, y_train, y_test=choose_testdata(x,y,5,42)
+    #绘制ROC曲线
+    draw_roc(x_train, x_test, y_train, y_test)
 
-#绘制ROC曲线
-draw_roc(x_train, x_test, y_train, y_test)
+    #计算AUC值
+    calc_auc(x_train, x_test, y_train, y_test)
 
-#计算AUC值
-calc_auc(x_train, x_test, y_train, y_test)
+    print "##"*25
 
-print "##"*25
-
-#对测试集进行预测
+    #对测试集进行预测
 
