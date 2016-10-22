@@ -151,5 +151,3 @@ def generateFeatures(offline):
 
 offline = processOfflineTrain('ccf_offline_stage1_train.csv')
 # processOfflineUserID(offline)
-# processOfflineDiscountRate(offline)
-# processOfflineMerchantID(offline)
