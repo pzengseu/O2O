@@ -148,6 +148,139 @@ def generateFeatures(offline):
     features.to_csv('offlineTrainfeatures.csv')
     return features
 
+def choose_testdata(x,y,num,random_state):
+    """
+    
+        从训练数据集中选择部分数据作为测试数据，其余部分为训练数据
+        :param x:数据集自变量部分
+        :param y:数据集标签（因变量）部分
+        :param num:将数据集划分成num份
+        :param random_state:随机种子范围（状态值）
+        :returns x_train:训练数据集自变量部分
+        :returns y_train:训练数据集因变量部分
+        :returns x_test:测试数据集自变量部分
+        :returns y_est:测试数据集因变量部分
+        
+    """
+    from sklearn.cross_validation import train_test_split
+    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=1.0/num, random_state=random_state)
+    x_test=pd.DataFrame(x_test)
+    x_train=pd.DataFrame(x_train)
+    y_train=pd.DataFrame(y_train)
+    y_test=pd.DataFrame(y_test)
+    y_train.columns = ['result']
+    y_test.columns = ['result']
+    return x_train, x_test, y_train, y_test
 
-offline = processOfflineTrain('ccf_offline_stage1_train.csv')
-# processOfflineUserID(offline)
+
+def proc_by_logis(x_train, x_test, y_train, y_test,threshold):
+    """
+    
+        利用训练数据集训练逻辑斯蒂回归分类器，并对测试集进行预测
+        :param x_train:训练数据集自变量部分
+        :param y_train:训练数据集因变量部分
+        :param x_test:测试数据集自变量部分
+        :param y_est:测试数据集因变量部分
+        :param threshold:逻辑斯蒂回归分类器的概率阈值
+        :returns TPR:对测试集进行测试得到的tpr
+        :returns FPR:对测试集进行测试得到的fpr
+        :returns pred_y_probs1:对测试集进行测试得到的预测标签结果列表（取正例概率）
+        
+    """
+    from sklearn.linear_model import LogisticRegression as LR
+    lr=LR()
+    lr.fit(x_train,y_train)
+    #得到测试集预测结果
+    pred_y=lr.predict_proba(x_test)
+    pred_y=pd.DataFrame(pred_y)
+    #正例概率列表
+    pred_y_probs1=pred_y[1]
+    pred_y_probs1=pd.DataFrame(pred_y_probs1)
+    pred_y_probs1.columns = ['result']
+    #求得TPR和FPR
+    #print pred_y[:30]
+    TP = sum((y_test['result']==1)& (pred_y_probs1['result']>=threshold))
+    FN = sum((y_test['result']==1)& (pred_y_probs1['result']<threshold))
+    FP = sum((y_test['result']==0)& (pred_y_probs1['result']>=threshold))
+    TN = sum((y_test['result']==0)& (pred_y_probs1['result']<threshold))
+    N=FP+TN
+    P=TP+FN
+    TPR=float(TP)/P
+    FPR=float(FP)/N
+    return TPR,FPR,pred_y_probs1
+
+
+def draw_roc(x_train, x_test, y_train, y_test):
+    """
+    
+        利用同一训练集和测试集，通过改变阈值，获得不同的tpr和fpr值，绘制roc曲线
+        :param x_train:训练数据集自变量部分
+        :param x_test:测试数据集自变量部分
+        :param y_train:训练数据集因变量部分
+        :param y_est:测试数据集因变量部分
+        
+    """
+    #生成概率阈值
+    thresholds = numpy.asarray([(10-j)/10.0 for j in range(10)])
+    tprs=[];
+    fprs = numpy.asarray([0. for j in range(10)])
+    tprs = numpy.asarray([0. for j in range(10)])
+    for j,thres in enumerate(thresholds):
+        print "thres:",thres
+        #利用逻辑斯蒂回归计算tpr,fpr
+        tpr,fpr,pred_y_probs1=proc_by_logis(x_train, x_test, y_train, y_test,thres)
+        fprs[j] = fpr
+        tprs[j] = tpr
+        print j,"tpr:",tpr
+        print j,"fpr:",fpr
+    #绘制ROC曲线
+    plt.plot(fprs, tprs)
+    plt.xlabel('FPR')
+    plt.ylabel('TPR')
+    plt.show()
+
+
+def calc_auc(x_train, x_test, y_train, y_test):
+    """
+    
+        计算AUC值
+        :param x_train:训练数据集自变量部分
+        :param x_test:测试数据集自变量部分
+        :param y_train:训练数据集因变量部分
+        :param y_est:测试数据集因变量部分
+        
+    """
+    from sklearn.metrics import roc_auc_score
+    tpr,fpr,pred_y_probs1=proc_by_logis(x_train, x_test, y_train, y_test,0.5)
+    obs=y_test['result'].values
+    print type(obs),obs
+    probs=pred_y_probs1['result'].values
+    print type(probs),probs
+    testing_auc = roc_auc_score(obs, probs)
+    print("Example AUC: {auc}".format(auc=testing_auc))
+
+
+
+##offline = processOfflineTrain('ccf_offline_stage1_train.csv')
+### processOfflineUserID(offline)
+#by:zcs
+filename="./offlineTrainfeatures.csv"
+trainData = pd.read_csv(filename, header=0)
+x=trainData[["Distance","week","userRate","merchantRate","discountRate"]]
+x[["Distance","week"]]=x[["Distance","week"]].astype(int)
+x[["userRate","merchantRate","discountRate"]]=x[["userRate","merchantRate","discountRate"]].astype(float)
+y=trainData[["result"]].astype(int)
+
+#分割训练数据集
+x_train, x_test, y_train, y_test=choose_testdata(x,y,5,42)
+
+#绘制ROC曲线
+draw_roc(x_train, x_test, y_train, y_test)
+
+#计算AUC值
+calc_auc(x_train, x_test, y_train, y_test)
+
+print "##"*25
+
+#对测试集进行预测
+
