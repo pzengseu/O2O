@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import pandas as pd
 import time
+import numpy
+import matplotlib.pyplot as plt
 
 '''
 计算线下训练集
