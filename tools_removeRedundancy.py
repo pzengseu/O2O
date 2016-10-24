@@ -186,7 +186,24 @@ def generateOfflineTestFeatures(offlineTest):
 
     features = offlineTest.drop(['User_id', 'Merchant_id', 'Coupon_id', 'Discount_rate', 'Date_received'], axis=1)
     features[['userRate', 'merchantRate', 'discountRate']] = features[['userRate', 'merchantRate', 'discountRate']].astype(float)
+
+    features.to_csv('offlineTestfeatures.csv')
     return features
+
+#将星期变为0-6
+def convertWeekInNumber():
+    trainData = pd.read_csv('offlineTrainfeatures.csv', header=0)[["userRate","merchantRate","discountRate", "Distance", "week", "result"]]
+    trainData['week'] = trainData['week'].astype('str')
+    week = pd.get_dummies(trainData['week'], prefix='week')
+    train = trainData.drop(['week'], axis=1).join(week)
+    train.to_csv('offlineTrainfeatures_week_number.csv', index=False)
+
+    test = pd.read_csv('offlineTestfeatures.csv', header=0)[["userRate","merchantRate","discountRate", "Distance", "week"]]
+    test['week'] = test['week'].astype('str')
+    week_test = pd.get_dummies(test['week'], prefix='week')
+    test = test.drop(['week'], axis=1).join(week_test)
+    test.to_csv('offlineTestfeatures_week_number.csv', index=False)
+
 
 def choose_testdata(x,y,num,random_state):
     """
