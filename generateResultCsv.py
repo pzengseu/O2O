@@ -1,37 +1,19 @@
 # -*- coding: utf-8 -*-
 
+import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression as LR
 from sklearn import svm
-from sklearn import cross_validation
-from sklearn.metrics import auc_score
-from sklearn.preprocessing import StandardScaler
-from tools_removeRedundancy import generateOfflineTestFeatures, processOfflineTest, convertWeekInNumber
+from tools_removeRedundancy import generateOfflineTestFeatures, processOfflineTest
 
-def get_auc(y, y_pred_proba):
-    score = auc_score(y, y_pred_proba)
-    print score
 
 #逻辑斯提回归
 def generatePredictWithLostic(x, y, x_predict):
     model = LR()
+    model.fit(x, y)
+    y_predict = model.predict_proba(x_predict)
 
-    # 交叉验证
-    # cv = cross_validation.KFold(x.shape[0], 10, shuffle=True, random_state=33)
-    # scores = cross_validation.cross_val_score(model, x, y, n_jobs=-1, cv=cv)
-    # print scores
-
-    # 数据标准缩放
-    sc = StandardScaler()
-    sc.fit(x)
-    x_std = sc.transform(x)
-    x_predict_std = sc.transform(x_predict)
-
-    model.fit(x_std, y)
-    y_proba = model.predict_proba(x_predict_std)
-    y_proba = pd.DataFrame(y_proba)
-
-    return y_proba
+    return pd.DataFrame(y_predict)
 
 #linear svc
 def generatePredictWithSVC(x, y, x_predict):
@@ -41,6 +23,7 @@ def generatePredictWithSVC(x, y, x_predict):
 
     return pd.DataFrame(y_predict)
 
+#特征为： "Distance","week","userRate","merchantRate","discountRate"
 def generateFileV1():
     trainData = pd.read_csv('offlineTrainfeatures.csv', header=0)
     x = trainData[["Distance","week","userRate","merchantRate","discountRate"]]
@@ -68,6 +51,7 @@ def generateFileV1():
     # result.to_csv('result_svc_v3.0.csv', index=False, header=None)
     print y_predict[:20]
 
+#特征为: "Distance","userRate","merchantRate","discountRate", 'week_0', 'week_1', 'week_2', 'week_3', 'week_4', 'week_5', 'week_6'
 def generateFile_week_V2():
     trainData = pd.read_csv('offlineTrainfeatures_week_number.csv', header=0)
     x = trainData[["Distance","userRate","merchantRate","discountRate", 'week_0', 'week_1', 'week_2', 'week_3', 'week_4', 'week_5', 'week_6']]
@@ -93,6 +77,3 @@ def generateFile_week_V2():
     offlineTest['result'] = y_predict[1]
     result = offlineTest[['User_id', 'Coupon_id', 'Date_received', 'result']]
     result.to_csv('result_logistic_v4.0.csv', index=False, header=None)
-    print y_predict[:20]
-
-generateFile_week_V2()
