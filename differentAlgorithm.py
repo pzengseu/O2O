@@ -8,6 +8,7 @@ from sklearn.metrics import make_scorer
 from sklearn.grid_search import GridSearchCV
 from sklearn.metrics import accuracy_score
 from sklearn.externals import joblib
+from sklearn import svm
 from sklearn.ensemble import RandomForestClassifier
 scoring = make_scorer(accuracy_score, greater_is_better=True)
 
@@ -30,14 +31,16 @@ def GridSearchfile(x, y):
     # joblib.dump(lg_best, 'lg_weekInNumbers.model')
 
     #RandomForest
-    rfc = RandomForestClassifier(random_state=42, criterion='entropy', min_samples_split=5, oob_score=True)
-    parameters = {'n_estimators':[500], 'min_samples_leaf':[12]}
-    rfc_best = get_model(rfc, parameters, x_train, y_train, scoring)
-    joblib.dump(rfc_best, 'rfc_weekInNumbers.model')
-    print rfc_best
-    print accuracy_score(y_test, rfc_best.predict(x_test))
-    print get_auc(y_test, rfc_best.predict_proba(x_test))
+    # rfc = RandomForestClassifier(random_state=42, criterion='entropy', min_samples_split=5, oob_score=True)
+    # parameters = {'n_estimators':[500], 'min_samples_leaf':[12]}
+    # rfc_best = get_model(rfc, parameters, x_train, y_train, scoring)
+    # joblib.dump(rfc_best, 'rfc_weekInNumbers.model')
 
+    #SVC
+    svc = svm.SVC(random_state=42, probability=True)
+    paramters = {'kernel':['linear', 'poly', 'rbf']}
+    svc_best = get_model(svc, paramters, x_train, y_train, scoring)
+    joblib.dump(svc_best, 'svc/svc_weekInNumbers.model')
 
 trainData = pd.read_csv('offlineTrainfeatures_week_number.csv', header=0)
 x = trainData[["Distance","userRate","merchantRate","discountRate", 'week_0', 'week_1', 'week_2', 'week_3', 'week_4', 'week_5', 'week_6']]
@@ -47,3 +50,14 @@ x[['week_0', 'week_1', 'week_2', 'week_3', 'week_4', 'week_5', 'week_6']] = x[['
 y = trainData[["result"]].astype(int)
 
 GridSearchfile(x, y)
+# features = pd.read_csv('offlineTestfeatures_week_number.csv', header=0)
+# features[["Distance"]] = features[["Distance"]].astype(int)
+# features[["userRate","merchantRate","discountRate"]] = features[["userRate","merchantRate","discountRate"]].astype(float)
+# features[['week_0', 'week_1', 'week_2', 'week_3', 'week_4', 'week_5', 'week_6']] = features[['week_0', 'week_1', 'week_2', 'week_3', 'week_4', 'week_5', 'week_6']].astype(int)
+#
+# x_predict = features[["Distance","userRate","merchantRate","discountRate", 'week_0', 'week_1', 'week_2', 'week_3', 'week_4', 'week_5', 'week_6']]
+
+# rfc = joblib.load('rfc/rfc_weekInNumbers.model')
+# print rfc.feature_importances_
+# print rfc.predict_proba(x_predict)[:10]
+# print get_auc(y.values, pd.DataFrame(rfc.predict_proba(x))[1].values)
