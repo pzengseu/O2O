@@ -117,7 +117,46 @@ def processOfflineDiscountRate(offline):
 
     return discountDict
 
-#获取训练集特征并保存到文件
+# 计算用户ID、商户ID对应的使用券次数和消费次数
+def generateConsumption():
+    userCost = {}
+    merchantCost = {}
+
+    offline = pd.read_csv('ccf_offline_stage1_train.csv', header=None)
+    offline.columns = ['User_id', 'Merchant_id', 'Coupon_id', 'Discount_rate', 'Distance', 'Date_received', 'Date']
+
+    #计算用户消费优惠券间隔天数
+    cost = offline[(offline['Date'] != 'null') & (offline['Date_received'] != 'null')]
+    offline['days'] = cost['Date'].apply(lambda x: int(time.strptime(str(x), '%Y%m%d')[7])) - \
+                      cost['Date_received'].apply(lambda x: int(time.strptime(str(x), '%Y%m%d')[7]))
+    offline['days'] = offline['days'].fillna(1000)
+
+    #计算每条数据是否在规定日期内使用优惠券，1为正样本，0为负样本
+    offline['result'] = offline[offline['days'] <= 15]['days'].apply(lambda x: 1)
+    offline['result'] = offline['result'].fillna(0)
+    offline['result'] = offline['result'].astype(int)
+
+    gbu = offline[['User_id', 'Merchant_id', 'Date', 'result']].groupby('User_id')
+    for user_id, group in gbu:
+        userCost[user_id] = [sum(group['Date'] != 'null'), sum(group['result'] == 1)]
+
+    gbm = offline[['User_id', 'Merchant_id', 'Date', 'result']].groupby('Merchant_id')
+    for merhant_id, group in gbm:
+        merchantCost[merhant_id] = [sum(group['Date'] != 'null'), sum(group['result'] == 1)]
+
+    f = file('userCost.txt', 'w+')
+    for u in userCost:
+        f.write(str(u)+' '+' '.join(map(str, userCost[u]))+'\n')
+    f.close()
+
+    f = file('merchantCost.txt', 'w+')
+    for m in merchantCost:
+        f.write(str(m)+' '+' '.join(map(str, merchantCost[m]))+'\n')
+    f.close()
+
+    return userCost, merchantCost
+
+# 获取训练集特征并保存到文件
 def generateFeatures(offline):
     userDict = {}
     merchantDict = {}
@@ -152,7 +191,7 @@ def generateFeatures(offline):
     features.to_csv('offlineTrainfeatures.csv')
     return features
 
-#生成线下特征数据集
+#生成线下测试特征数据集
 def generateOfflineTestFeatures(offlineTest):
     userDict = {}
     merchantDict = {}
@@ -190,6 +229,75 @@ def generateOfflineTestFeatures(offlineTest):
     features.to_csv('offlineTestfeatures.csv')
     return features
 
+# 生成线下测试特征集：“Distance","userRate","merchantRate","discountRate", 'week', 'userTotalCost', 'userVaildedCost', 'merchantCost', 'userVaildedCost'
+def generateTestCostFile():
+    userDict = {}
+    ufile = file('userCost.txt', 'r')
+    for line in ufile:
+        d = line.split()
+        userDict[d[0]] = [d[1], d[2]]
+    ufile.close()
+
+    merchantDict = {}
+    mfile = file('merchantCost.txt', 'r')
+    for line in mfile:
+        d = line.split()
+        merchantDict[d[0]] = [d[1], d[2]]
+    mfile.close()
+
+    offlineTest = pd.read_csv('offlineTestfeaturesDistanceRandom.csv')
+    originOfflineTest = pd.read_csv('ccf_offline_stage1_test_revised.csv', header=None)
+    originOfflineTest.columns = ['User_id', 'Merchant_id', 'Coupon_id', 'Discount_rate', 'Distance', 'Date_received']
+    originOfflineTest = originOfflineTest.drop('Distance', 1)
+    originOfflineTest.index = offlineTest['Unnamed: 0']
+    offlineTest = offlineTest.join(originOfflineTest)
+    offlineTest = offlineTest.drop('Unnamed: 0', 1)
+
+
+    offline = pd.read_csv('offlineTrainWithCost.csv')
+    userTotalCostMean = offline['userTotalCost'].mean()
+    userVaildedCostMean = offline['userVaildedCost'].mean()
+    merchantTotalCostMean = offline['merchantCost'].mean()
+    merchantVaildedCostMean = offline['merchantVaildedCost'].mean()
+
+    offlineTest['userTotalCost'] = offlineTest['User_id'].map(lambda x: userDict[str(x)][0] if str(x) in userDict else userTotalCostMean)
+    offlineTest['userVaildedCost'] = offlineTest['User_id'].map(lambda x: userDict[str(x)][1] if str(x) in userDict else userVaildedCostMean)
+    offlineTest['merchantCost'] = offlineTest['Merchant_id'].map(lambda x: merchantDict[str(x)][0] if str(x) in merchantDict else merchantTotalCostMean)
+    offlineTest['merchantVaildedCost'] = offlineTest['Merchant_id'].map(lambda x: merchantDict[str(x)][1] if str(x) in merchantDict else merchantVaildedCostMean)
+    offlineTest[['week', 'Distance']] = offlineTest[['week', 'Distance']].astype(int)
+    offlineTest.to_csv('offlineTestWithCost.csv')
+
+#生成特征为："Distance","userRate","merchantRate","discountRate", 'week', 'userTotalCost', 'userVaildedCost', 'merchantCost', 'userVaildedCost'
+def generateTrainCostFile():
+    userDict = {}
+    ufile = file('userCost.txt', 'r')
+    for line in ufile:
+        d = line.split()
+        userDict[d[0]] = [d[1], d[2]]
+    ufile.close()
+
+    merchantDict = {}
+    mfile = file('merchantCost.txt', 'r')
+    for line in mfile:
+        d = line.split()
+        merchantDict[d[0]] = [d[1], d[2]]
+    mfile.close()
+
+    offline = pd.read_csv('offlineTrainfeaturesDistanceRandom.csv')
+    originOffline = pd.read_csv('ccf_offline_stage1_train.csv', header=None)
+    originOffline.columns = ['User_id', 'Merchant_id', 'Coupon_id', 'Discount_rate', 'Distance', 'Date_received', 'Date']
+    originOffline = originOffline.drop('Distance', 1)
+    offline.index = offline['Unnamed: 0']
+    offline = originOffline.join(offline)
+    offline = offline[offline['Coupon_id'] != 'null'].drop('Unnamed: 0', 1)
+
+    offline['userTotalCost'] = offline['User_id'].map(lambda x: userDict[str(x)][0])
+    offline['userVaildedCost'] = offline['User_id'].map(lambda x: userDict[str(x)][1])
+    offline['merchantCost'] = offline['Merchant_id'].map(lambda x: merchantDict[str(x)][0])
+    offline['merchantVaildedCost'] = offline['Merchant_id'].map(lambda x: merchantDict[str(x)][1])
+    offline[['week', 'Distance']] = offline[['week', 'Distance']].astype(int)
+    offline.to_csv('offlineTrainWithCost.csv')
+
 #将星期变为0-6
 def convertWeekInNumber():
     trainData = pd.read_csv('offlineTrainfeatures.csv', header=0)[["userRate","merchantRate","discountRate", "Distance", "week", "result"]]
@@ -203,7 +311,6 @@ def convertWeekInNumber():
     week_test = pd.get_dummies(test['week'], prefix='week')
     test = test.drop(['week'], axis=1).join(week_test)
     test.to_csv('offlineTestfeatures_week_number.csv', index=False)
-
 
 def choose_testdata(x,y,num,random_state):
     """
@@ -228,7 +335,6 @@ def choose_testdata(x,y,num,random_state):
     y_train.columns = ['result']
     y_test.columns = ['result']
     return x_train, x_test, y_train, y_test
-
 
 def proc_by_logis(x_train, x_test, y_train, y_test,threshold):
     """
@@ -266,7 +372,6 @@ def proc_by_logis(x_train, x_test, y_train, y_test,threshold):
     FPR=float(FP)/N
     return TPR,FPR,pred_y_probs1
 
-
 def draw_roc(x_train, x_test, y_train, y_test):
     """
     
@@ -296,7 +401,6 @@ def draw_roc(x_train, x_test, y_train, y_test):
     plt.ylabel('TPR')
     plt.show()
 
-
 def calc_auc(x_train, x_test, y_train, y_test):
     """
     
@@ -316,8 +420,7 @@ def calc_auc(x_train, x_test, y_train, y_test):
     testing_auc = roc_auc_score(obs, probs)
     print("Example AUC: {auc}".format(auc=testing_auc))
 
-
-if __name__ == '__main__':
+def testAuc():
     ##offline = processOfflineTrain('ccf_offline_stage1_train.csv')
     ### processOfflineUserID(offline)
     #by:zcs
@@ -341,3 +444,5 @@ if __name__ == '__main__':
 
     #对测试集进行预测
 
+if __name__ == '__main__':
+    generateTestCostFile()
