@@ -115,4 +115,61 @@ def testFeaturesCost():
 
     offlineTest.to_csv('result_with_cost_v6.0.csv', index=False, header=None)
 
-testFeaturesCost()
+def format_zcs(x):
+    #归一化
+    #1.Distance、week
+    x['Distance']=x['Distance']/6.0
+    mask = x['Distance']==0.0
+    x['Distance'][mask] = 0.000001
+    x['week']=x['week']/6.0
+    mask = x['week']==0.0
+    x['week'][mask] = 0.000001
+    #2.userRate、merchantRate
+    mask = x['userRate']==0.0
+    x['userRate'][mask] = 0.000001
+    mask = x['merchantRate']==0.0
+    x['merchantRate'][mask] = 0.000001
+    #3.userTotalCost、userVaildedCost、merchantCost、merchantVaildedCost
+    cur_max=x['userTotalCost'].max()
+    if cur_max==0:cur_max=1
+    x['userTotalCost']=x['userTotalCost']/cur_max
+    cur_max=x['userVaildedCost'].max()
+    if cur_max==0:cur_max=1
+    x['userVaildedCost']=x['userVaildedCost']/cur_max
+    cur_max=x['merchantCost'].max()
+    if cur_max==0:cur_max=1
+    x['merchantCost']=x['merchantCost']/cur_max
+    cur_max=x['merchantVaildedCost'].max()
+    if cur_max==0:cur_max=1
+    x['merchantVaildedCost']=x['merchantVaildedCost']/cur_max
+    #4.
+    mask = x['userTotalCost']==0.0
+    x['userTotalCost'][mask] = 0.000001
+    mask = x['userVaildedCost']==0.0
+    x['userVaildedCost'][mask] = 0.000001
+    mask = x['merchantCost']==0.0
+    x['merchantCost'][mask] = 0.000001
+    mask = x['merchantVaildedCost']==0.0
+    x['merchantVaildedCost'][mask] = 0.000001
+    return x
+
+# features：“Distance","userRate","merchantRate","discountRate", 'week', 'userTotalCost', 'userVaildedCost', 'merchantCost', 'merchantVaildedCost'
+def testFeaturesCost_zcs():
+    train = pd.read_csv('offlineTrainWithCost.csv')
+    x = train[["Distance","userRate","merchantRate","discountRate", 'week', 'userTotalCost', 'userVaildedCost', 'merchantCost', 'merchantVaildedCost']]
+    y = train['result'].astype(int)
+    x=format_zcs(x)
+    x_train, x_test, y_train, y_test = train_test_split(x, y, random_state=42)
+    y_predict_test, model = logisticRegressionTest(x_train, y_train, x_test)
+    print 'auc: ', get_auc(y_test, y_predict_test[1])
+
+    test = pd.read_csv('offlineTestWithCost.csv')
+    x_predict = test[["Distance","userRate","merchantRate","discountRate", 'week', 'userTotalCost', 'userVaildedCost', 'merchantCost', 'userVaildedCost']]
+    y_predict = pd.DataFrame(model.predict_proba(x_predict.values))[1]
+
+    offlineTest = test[['User_id', 'Coupon_id', 'Date_received']]
+    offlineTest['result'] = y_predict
+
+    offlineTest.to_csv('result_with_cost_v6.0.csv', index=False, header=None)
+
+testFeaturesCost_zcs()
