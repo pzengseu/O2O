@@ -296,7 +296,13 @@ def generateTrainCostFile():
     offline['merchantCost'] = offline['Merchant_id'].map(lambda x: merchantDict[str(x)][0])
     offline['merchantVaildedCost'] = offline['Merchant_id'].map(lambda x: merchantDict[str(x)][1])
     offline[['week', 'Distance']] = offline[['week', 'Distance']].astype(int)
+
+    cost = offline[offline['Date'] != 'null']
+    offline['days'] = cost['Date'].apply(lambda x: int(time.strptime(str(x), '%Y%m%d')[7])) - \
+                      cost['Date_received'].apply(lambda x: int(time.strptime(str(x), '%Y%m%d')[7]))
+    offline['days'] = offline['days'].fillna(1000)
     offline.to_csv('offlineTrainWithCost.csv')
+    print offline[:100]
 
 #将星期变为0-6
 def convertWeekInNumber():
@@ -445,4 +451,4 @@ def testAuc():
     #对测试集进行预测
 
 if __name__ == '__main__':
-    generateTrainCostFile_by_day(1)
+    generateTrainCostFile()
