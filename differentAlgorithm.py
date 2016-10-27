@@ -58,7 +58,6 @@ def xgboostTest(x, y, x_predict):
     model.fit(x, y)
     print model.feature_importances_
     y_predict = model.predict_proba(x_predict)
-    joblib.dump(model, 'xgb/xgb')
     return pd.DataFrame(y_predict), model
 
 # 在特征为"Distance","userRate","merchantRate","discountRate", 'week_0', 'week_1', 'week_2', 'week_3', 'week_4', 'week_5', 'week_6'下测试
@@ -96,24 +95,24 @@ def testFeatures_DistanceRandom():
     x_predict = test[["Distance","userRate","merchantRate","discountRate", 'week']]
     print model.predict_proba(x_predict.values)
 
-# features：“Distance","userRate","merchantRate","discountRate", 'week', 'userTotalCost', 'userVaildedCost', 'merchantCost', 'userVaildedCost'
+# features：“Distance","userRate","merchantRate","discountRate", 'week', 'userTotalCost', 'userVaildedCost', 'merchantCost', 'merchantVaildedCost'
 def testFeaturesCost():
     train = pd.read_csv('offlineTrainWithCost.csv')
-    x = train[["Distance","userRate","merchantRate","discountRate", 'week', 'userTotalCost', 'userVaildedCost', 'merchantCost', 'userVaildedCost']]
+    x = train[["Distance","userRate","merchantRate","discountRate", 'week', 'userTotalCost', 'userVaildedCost', 'merchantCost', 'merchantVaildedCost']]
     y = train['result'].astype(int)
 
     x_train, x_test, y_train, y_test = train_test_split(x, y, random_state=42)
-    y_predict_test, model = logisticRegressionTest(x_train, y_train, x_test)
+    y_predict_test, model = xgboostTest(x_train, y_train, x_test)
     print 'auc: ', get_auc(y_test, y_predict_test[1])
 
     test = pd.read_csv('offlineTestWithCost.csv')
-    x_predict = test[["Distance","userRate","merchantRate","discountRate", 'week', 'userTotalCost', 'userVaildedCost', 'merchantCost', 'userVaildedCost']]
+    x_predict = test[["Distance","userRate","merchantRate","discountRate", 'week', 'userTotalCost', 'userVaildedCost', 'merchantCost', 'merchantVaildedCost']]
     y_predict = pd.DataFrame(model.predict_proba(x_predict.values))[1]
 
     offlineTest = test[['User_id', 'Coupon_id', 'Date_received']]
     offlineTest['result'] = y_predict
 
-    offlineTest.to_csv('result_with_cost_v6.0.csv', index=False, header=None)
+    offlineTest.to_csv('result_with_cost_xgb_v8.0.csv', index=False, header=None)
 
 def format_zcs(x):
     #归一化
@@ -164,7 +163,7 @@ def testFeaturesCost_zcs():
     print 'auc: ', get_auc(y_test, y_predict_test[1])
 
     test = pd.read_csv('offlineTestWithCost.csv')
-    x_predict = test[["Distance","userRate","merchantRate","discountRate", 'week', 'userTotalCost', 'userVaildedCost', 'merchantCost', 'userVaildedCost']]
+    x_predict = test[["Distance","userRate","merchantRate","discountRate", 'week', 'userTotalCost', 'userVaildedCost', 'merchantCost', 'merchantVaildedCost']]
     y_predict = pd.DataFrame(model.predict_proba(x_predict.values))[1]
 
     offlineTest = test[['User_id', 'Coupon_id', 'Date_received']]
@@ -172,4 +171,4 @@ def testFeaturesCost_zcs():
 
     offlineTest.to_csv('result_with_cost_v6.0.csv', index=False, header=None)
 
-testFeaturesCost_zcs()
+testFeaturesCost()

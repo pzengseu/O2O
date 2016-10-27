@@ -451,4 +451,4 @@ def testAuc():
     #对测试集进行预测
 
 if __name__ == '__main__':
-    generateTrainCostFile()
+    generateTestCostFile()
