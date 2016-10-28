@@ -11,6 +11,7 @@ from sklearn.externals import joblib
 from sklearn import svm
 from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
+from sklearn import preprocessing
 
 scoring = make_scorer(accuracy_score, greater_is_better=True)
 
@@ -60,6 +61,15 @@ def xgboostTest(x, y, x_predict):
     y_predict = model.predict_proba(x_predict)
     return pd.DataFrame(y_predict), model
 
+#正则化处理
+def processStandard(x, x_predict):
+    scaler = preprocessing.StandardScaler().fit(x)
+    print scaler.mean_
+    print scaler.std_
+    x = scaler.transform(x)
+    x_predict = scaler.transform(x_predict)
+    return x, x_predict
+
 # 在特征为"Distance","userRate","merchantRate","discountRate", 'week_0', 'week_1', 'week_2', 'week_3', 'week_4', 'week_5', 'week_6'下测试
 def testFeatures_weekInNumbers():
     trainData = pd.read_csv('offlineTrainfeatures_week_number.csv', header=0)
@@ -101,18 +111,21 @@ def testFeaturesCost():
     x = train[["Distance","userRate","merchantRate","discountRate", 'week', 'userTotalCost', 'userVaildedCost', 'merchantCost', 'merchantVaildedCost']]
     y = train['result'].astype(int)
 
-    x_train, x_test, y_train, y_test = train_test_split(x, y, random_state=42)
-    y_predict_test, model = xgboostTest(x_train, y_train, x_test)
-    print 'auc: ', get_auc(y_test, y_predict_test[1])
-
     test = pd.read_csv('offlineTestWithCost.csv')
     x_predict = test[["Distance","userRate","merchantRate","discountRate", 'week', 'userTotalCost', 'userVaildedCost', 'merchantCost', 'merchantVaildedCost']]
-    y_predict = pd.DataFrame(model.predict_proba(x_predict.values))[1]
 
+    x, x_predict = processStandard(x, x_predict)
+    x_train, x_test, y_train, y_test = train_test_split(x, y, random_state=42)
+    y_predict_test, model = logisticRegressionTest(x_train, y_train, x_test)
+    print 'auc: ', get_auc(y_test, y_predict_test[1])
+
+    print x[:1]
+    print x_predict[:1]
+    y_predict = pd.DataFrame(model.predict_proba(x_predict))[1]
     offlineTest = test[['User_id', 'Coupon_id', 'Date_received']]
     offlineTest['result'] = y_predict
-
-    offlineTest.to_csv('result_with_cost_xgb_v8.0.csv', index=False, header=None)
+    #
+    offlineTest.to_csv('result_with_cost_log_Standard_v10.0.csv', index=False, header=None)
 
 def format_zcs(x):
     #归一化
