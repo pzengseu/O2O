@@ -45,6 +45,10 @@ def GridSearchfile(x, y):
     svc_best = get_model(svc, paramters, x_train, y_train, scoring)
     joblib.dump(svc_best, 'svc/svc_weekInNumbers.model')
 
+# 随机森林分类
+def randomForestClassifierTest(x, y):
+    pass
+
 #逻辑斯提回归
 def logisticRegressionTest(x, y, x_predict):
     model = LR()
@@ -132,16 +136,16 @@ def testFeaturesCost():
 
     x, x_predict = processMinMaxScaler(x, x_predict)
     x_train, x_test, y_train, y_test = train_test_split(x, y, random_state=42)
-    y_predict_test, model = svcTest(x_train, y_train, x_test)
+    y_predict_test, model = logisticRegressionTest(x_train, y_train, x_test)
     print 'auc: ', get_auc(y_test, y_predict_test[1])
 
     print x[:1]
     print x_predict[:1]
     y_predict = pd.DataFrame(model.predict_proba(x_predict))[1]
     offlineTest = test[['User_id', 'Coupon_id', 'Date_received']]
-    offlineTest['result'] = y_predict
+    offlineTest['result'] = y_predict.map(lambda x: round(x, 2))
     #
-    offlineTest.to_csv('result_with_cost_log_Standard_v10.0.csv', index=False, header=None)
+    offlineTest.to_csv('result_with_log_round_v12.0.csv', index=False, header=None)
 
 def format_zcs(x):
     #归一化
