@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import pandas as pd
+import numpy as np
 from sklearn.linear_model import LogisticRegression as LR
 from sklearn.metrics import auc_score
 from sklearn.cross_validation import train_test_split
@@ -114,16 +115,32 @@ def testFeatures_weekInNumbers():
 # 特征为："Distance","userRate","merchantRate","discountRate", 'week',且Distance随机化
 def testFeatures_DistanceRandom():
     train = pd.read_csv('offlineTrainfeaturesDistanceRandom.csv')
+    train.drop(['Unnamed: 0'], axis=1, inplace=True)
+
+    temp = train[train.result==1].copy()
+    for i in xrange(10):
+        train = pd.concat([train, temp])
+
+    train.index = np.arange(len(train))
+    rei = np.random.permutation(len(train))
+    train = train.ix[rei]
+
     x = train[["Distance","userRate","merchantRate","discountRate", 'week']]
     y = train[['result']]
     x_train, x_test, y_train, y_test = train_test_split(x, y, random_state=42)
 
-    y_predict_test, model = xgboostTest(x_train, y_train, x_test)
+    y_predict_test, model = logisticRegressionTest(x_train, y_train, x_test)
     print 'auc: ', get_auc(y_test, pd.DataFrame(y_predict_test)[1])
-
+    #
     test = pd.read_csv('offlineTestfeaturesDistanceRandom.csv')
     x_predict = test[["Distance","userRate","merchantRate","discountRate", 'week']]
-    print model.predict_proba(x_predict.values)
+    y_predict = model.predict_proba(x_predict.values)
+
+    offlineTest = pd.read_csv('offlineTestWithCost.csv')
+    offlineTest = offlineTest[['User_id', 'Coupon_id', 'Date_received']]
+    offlineTest['result'] = pd.DataFrame(y_predict)[1]
+
+    offlineTest.to_csv('result_v13.0.csv', index=False, header=None)
 
 # features：“Distance","userRate","merchantRate","discountRate", 'week', 'userTotalCost', 'userVaildedCost', 'merchantCost', 'merchantVaildedCost'
 def testFeaturesCost():
@@ -204,4 +221,4 @@ def testFeaturesCost_zcs():
 
     offlineTest.to_csv('result_with_cost_v6.0.csv', index=False, header=None)
 
-testFeaturesCost()
+testFeatures_DistanceRandom()
